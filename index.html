@@ -423,7 +423,7 @@ kbd {
   100% { opacity: 0; transform: scale(1); }
 }
 
-/* 1분마다 가장 가까운 진짜 바나나가 외치는 말풍선 (위치는 main.js가 매 프레임 옮긴다) */
+/* 한동안 바나나를 못 찾으면 가장 가까운 진짜 바나나가 외치는 말풍선 (위치는 main.js가 매 프레임 옮긴다) */
 .callout {
   position: fixed;
   left: 50%;
@@ -10299,7 +10299,8 @@ const SLIP_RADIUS = 0.35; // 발 중심에서 껍질까지 이만큼 가까우�
 const SLIP_SLIDE = 0.6; // 넘어지며 앞으로 미끄러지는 거리(m)
 const COUNTDOWN_FROM = 10; // 남은 시간이 이 초 이하면 큰 카운트다운을 띄운다
 const LOW_TIME = 30; // 남은 시간이 이보다 적으면 시계가 붉어진다
-const CALL_EVERY = 60; // 이만큼(초) 놀 때마다 가장 가까운 진짜 바나나가 한 번 외친다
+const CALL_AFTER = 60; // 진짜 바나나를 이만큼(초) 못 찾으면 가장 가까운 진짜 바나나가 외친다
+const CALL_AGAIN = 30; // 그 뒤에도 못 찾으면 이만큼마다 다시 외친다
 const CALL_MS = 2600; // 외침 말풍선이 떠 있는 시간
 const ROUND_TITLE_MS = 2600; // 새 판 시작 때 타이틀이 떠 있다 사라지는 시간
 const CALL_LINES = ['나 여기야!', '나 여깄어!', '여기 여기!', '나 찾아봐!', '이쪽이야!', '나 여기 있지롱!'];
@@ -10407,8 +10408,8 @@ let pendingLock = null; // 마우스가 고정되면 할 일: 'new'(새 판) | '
 let lockMsg = null; // 고정이 거부됐을 때 보여 줄 문구
 let clearing = false; // 5번째 바나나를 찾고 클리어 화면으로 넘어가는 1초
 let hintUntil = 0;
-let played = 0; // 이번 판에서 실제로 논 시간(초). 멈춤 동안은 늘지 않는다
-let callNext = CALL_EVERY;
+let sinceFound = 0; // 마지막으로 진짜 바나나를 찾은 뒤(또는 판 시작 뒤) 실제로 논 시간(초). 멈춤 동안은 늘지 않는다
+let callNext = CALL_AFTER;
 let callout = null; // 지금 떠 있는 외침: { index, until }
 let fall = null; // 껍질을 밟고 넘어지는 중: { t, startPitch, side, dx, dz }
 let fallPoseNow = null;
@@ -11108,8 +11109,8 @@ function startNewRound() {
   applyCamera(camera, state.player);
   clearing = false;
   hintUntil = performance.now() + HINT_MS;
-  played = 0;
-  callNext = CALL_EVERY;
+  sinceFound = 0;
+  callNext = CALL_AFTER;
   hideCallout();
   showRoundTitle();
   updateHud();
@@ -11154,6 +11155,8 @@ function onClick() {
   }
   if (tryPick(state, map, hit, isLocked())) {
     world.collectBanana(hit.bananaIndex);
+    sinceFound = 0; // 찾았으니 힌트 시계를 처음부터
+    callNext = CALL_AFTER;
     audio.sfx('found');
     updateHud();
     ui.plus.classList.remove('show');
@@ -11265,7 +11268,7 @@ function stepFall(dt) {
 }
 
 // ---------------- 바나나 외침 ----------------
-// 1분마다 아직 못 찾은 진짜 바나나 중 가장 가까운 것이 "나 여기야!" 하고 잠깐 외친다.
+// 진짜 바나나를 1분 동안 못 찾으면 (그 뒤로는 30초마다) 아직 못 찾은 진짜 바나나 중 가장 가까운 것이 "나 여기야!" 하고 잠깐 외친다.
 // 화면 밖이나 등 뒤에 있으면 말풍선이 그쪽 화면 가장자리에 붙고, 꼬리가 바나나 쪽을 가리킨다.
 let callPos = null;
 function callOut(now) {
@@ -11387,9 +11390,9 @@ function frame(now) {
     if (!clearing && state.screen === 'playing') {
       const spent = Math.min(0.5, (now - prevTime) / 1000);
       state.timeLeft = Math.max(0, state.timeLeft - spent);
-      played += spent;
-      if (played >= callNext) {
-        callNext += CALL_EVERY;
+      sinceFound += spent;
+      if (sinceFound >= callNext) {
+        callNext += CALL_AGAIN;
         if (state.timeLeft > 0) callOut(now);
       }
       updateClock();
