@@ -103,8 +103,9 @@ html, body {
   text-shadow: 3px 3px 0 var(--banana);
 }
 .title.small { font-size: 32px; }
-/* 홈 화면 제목, 새 판 시작 제목, 카운트다운 숫자는 Ok Mallang B 글꼴 */
+/* 홈 화면 제목(불러오는 중 화면도 같게), 새 판 시작 제목, 카운트다운 숫자는 Ok Mallang B 글꼴 */
 #s-start .title,
+#s-loading .title,
 .round-title-text,
 .countdown { font-family: 'Ok Mallang B', var(--font); font-weight: 400; }
 .lead { margin: 0 0 8px; font-size: 20px; }
@@ -622,7 +623,8 @@ body.free-look #view { cursor: none; }
   pointer-events: none;
 }
 .start-text > * { pointer-events: auto; }
-.start .title {
+.start .title,
+#s-loading .title {
   font-size: clamp(56px, min(13vw, 17vh), 168px);
   font-weight: 920;
   line-height: 0.88;
@@ -838,7 +840,7 @@ body.free-look #view { cursor: none; }
 
   <!-- S0 불러오는 중 -->
   <section id="s-loading" class="screen solid">
-    <h1 class="title">Find banana</h1>
+    <h1 class="title">Find Bananas</h1>
     <div class="bar"><i id="bar"></i></div>
     <p class="sub">그림을 펼치는 중…</p>
   </section>
