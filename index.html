@@ -488,9 +488,6 @@ kbd {
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 @keyframes title-bounce { 30% { transform: translateY(-6px) scale(1.04); } 60% { transform: translateY(1px); } }
 @keyframes title-droop { 40% { transform: rotate(-3deg) translateY(2px); } 75% { transform: rotate(1.5deg); } }
-@media (prefers-reduced-motion: reduce) {
-  #s-cleared, #s-timeup, #s-cleared *, #s-timeup * { animation: none !important; }
-}
 
 /* ---------- E4 ---------- */
 .e4 {
@@ -2672,7 +2669,7 @@ function createHeroBanana(THREE, canvas, textEl) {
   const pv = new THREE.Vector3();
   const ps = new THREE.Vector3();
   const color = new THREE.Color();
-  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const calm = false; // 모션 줄이기 설정과 상관없이 늘 같은 속도로 움직인다 (2026-10-28 숨 요청)
   // fresh: 처음에는 화면 곳곳에 뿌려 두고, 그다음부터는 오른쪽 위 가장자리 바깥에서 들어온다
   function placePetal(p, fresh) {
     p.z = -2.6 + Math.random() * 4.1; // 바나나 뒤 멀리부터 카메라 조금 앞까지
@@ -11442,7 +11439,7 @@ function createIntro(THREE, { soundOn = () => true } = {}) {
   };
 }
 // ===== js/outro.js =====
-// 끝 장면 (시안): 마지막 바나나를 찾으면 지금 보던 화면이 그대로 액자 속 그림이 되고,
+// 끝 장면: 마지막 바나나를 찾으면 게임 화면이 액자 속 그림(그 공간의 썸네일, 진입 스토리에서 도둑맞은 그림)으로 바뀌고,
 // 카메라가 그림 밖으로 빠져나와 미술관 벽에 다시 걸린 그림을 보여 준다. 그 뒤 클리어 화면(S4)이 위에 뜬다.
 // 진입 스토리와 같은 미술관(story.js)과 같은 유화 필터(painter)를 쓴다. 괴물은 나오지 않는다.
 
@@ -11525,13 +11522,18 @@ function createOutro(THREE) {
   return {
     get active() { return !!root; },
     get playing() { return !!root && !done; },
-    // snap: 마지막 순간의 게임 화면(캔버스), name: 공간 이름. 끝나면(또는 건너뛰면) then()을 부른다.
-    play({ snap, name }, then) {
+    // snap: 마지막 순간의 게임 화면(캔버스, 처음에 위에 덮었다가 사라진다), thumb: 액자에 걸 그림(공간 썸네일),
+    // name: 공간 이름. 끝나면(또는 건너뛰면) then()을 부른다.
+    async play({ snap, thumb, name }, then) {
       close();
       done = false;
       onDone = then;
-      const tex = new THREE.CanvasTexture(snap);
+      const img = new Image();
+      img.src = thumb;
+      await img.decode().catch(() => {});
+      const tex = new THREE.Texture(img);
       tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
       root = document.createElement('div');
       root.className = 'outro';
       root.innerHTML = OUTRO_HTML;
@@ -11542,7 +11544,7 @@ function createOutro(THREE) {
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       painter = createPainter(THREE, renderer);
-      story = createStory(THREE, { mat: createMaterialKit(THREE).mat, painting: tex, aspect: snap.width / snap.height });
+      story = createStory(THREE, { mat: createMaterialKit(THREE).mat, painting: tex, aspect: 1 });
       story.update(0); // 불빛과 그림 자리를 처음 상태로
       story.monster.visible = false;
       // 그림은 조명에 물들지 않게 그대로 보여 준다 (게임 화면과 같은 색)
@@ -12496,7 +12498,11 @@ function playOutro() {
     snap.width = ui.canvas.width;
     snap.height = ui.canvas.height;
     snap.getContext('2d').drawImage(ui.canvas, 0, 0);
-    outro.play({ snap, name: space.name }, () => { if (clearing) showCleared(); });
+    outro.play({ snap, thumb: space.thumb, name: space.name }, () => { if (clearing) showCleared(); }).catch((err) => {
+      console.warn('[Find banana] 끝 장면을 틀지 못했어요:', err);
+      outro.close();
+      if (clearing) showCleared();
+    });
   } catch (err) {
     console.warn('[Find banana] 끝 장면을 틀지 못했어요:', err);
     outro.close();
